@@ -10,11 +10,27 @@ categories = ["embedded", "no-std"]
 keywords = ["driver", "LR2021", "transceiver"]
 
 [features]
-defmt = ["dep:defmt"]
+# Forwarded to embassy-time rather than selected unconditionally on it, so that a
+# `defmt` build still gets `Format` for the durations and instants in this API while a
+# build without the feature is not made to link defmt at all.
+#
+# `defmt-timestamp-uptime` is deliberately not forwarded: it installs the global defmt
+# timestamp, which is the application's to choose and can only be chosen once.
+defmt = ["dep:defmt", "embassy-time/defmt"]
 
 [dependencies]
 
-embassy-time = { version = "0.5.0", features = ["defmt", "defmt-timestamp-uptime", "tick-hz-32_768", ] }
+# No features selected here. `tick-hz-*` and `defmt` are global choices that belong to the
+# application: cargo unifies features across the whole graph, so selecting one here forces
+# it on every crate in the build. `tick-hz-32_768` in particular cannot merely be
+# overridden — it conflicts outright with any HAL time driver that asks for a different
+# rate, and the build then fails inside embassy-time-driver with a duplicate `TICK_HZ`
+# rather than anywhere that names this crate.
+#
+# Nothing here depends on the tick rate; the driver uses `Duration`, `Instant` and `Timer`,
+# which are rate-independent. An application that wants 32_768 Hz still selects it, and one
+# whose HAL wants 1_000_000 Hz can now use this driver at all.
+embassy-time = { version = "0.5.0" }
 embassy-embedded-hal = { version = "0.5.0" }
 
 embedded-hal = "1.0.0"
