@@ -343,10 +343,21 @@ impl<O,SPI, M> Lr2021<O,SPI, M> where
     }
 
     /// Write a command
+    ///
+    /// The frame is always completed and NSS always released, even when the status returned
+    /// during it reports a failure. Returning early on that check left NSS asserted for
+    /// good: from the chip's point of view the SPI frame never ended, so every later
+    /// transaction read back as zeros and the device looked bricked rather than merely
+    /// unhappy about one command.
+    ///
+    /// Note also that the status carried in a write frame describes the *previous* command
+    /// rather than this one, so the error returned here is often about something the caller
+    /// has already dealt with.
     pub async fn cmd_wr(&mut self, req: &[u8]) -> Result<(), Lr2021Error> {
         // #[cfg(feature = "defmt")]{defmt::info!("[CMD WR] {:02x}", req);}
-        self.cmd_wr_begin(req).await?;
-        self.nss.set_high().map_err(|_| Lr2021Error::Pin)
+        let status = self.cmd_wr_begin(req).await;
+        let released = self.nss.set_high().map_err(|_| Lr2021Error::Pin);
+        status.and(released)
     }
 
     /// Write a command and read response
