@@ -382,13 +382,25 @@ impl<O,SPI, M> Lr2021<O,SPI, M> where
         self.buffer.cmd_status().check()
     }
 
-    /// Write a command with vairable length payload
-    /// Any feedback data will be available in side the local buffer
+    /// Write a command with variable length payload
+    ///
+    /// The payload is written straight from the caller's slice, so it may be
+    /// any length: notably a 511-byte FLRC packet, which is the longest the
+    /// modem accepts. This used to be a full-duplex `transfer` into the local
+    /// 256-byte command buffer with the read half discarded, which capped the
+    /// payload at 256 bytes -- and did not report that, it panicked on the
+    /// slice index inside the driver:
+    ///
+    ///     range end index 384 out of range for slice of length 256
+    ///
+    /// Nothing wanted the read half. Semtech's own driver writes the payload
+    /// direct from the caller's buffer for the same command
+    /// (`lr20xx_radio_fifo_write_tx`), and its FLRC burst example sends
+    /// 511-byte frames that way.
     pub async fn cmd_data_wr(&mut self, opcode: &[u8], data: &[u8]) -> Result<(), Lr2021Error> {
         self.cmd_wr_begin(opcode).await?;
-        let rsp = &mut self.buffer.data_mut()[..data.len()];
         self.spi
-            .transfer(rsp, data).await
+            .write(data).await
             .map_err(|_| Lr2021Error::Spi)?;
         self.nss.set_high().map_err(|_| Lr2021Error::Pin)
     }
