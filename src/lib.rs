@@ -397,12 +397,19 @@ impl<O,SPI, M> Lr2021<O,SPI, M> where
     /// direct from the caller's buffer for the same command
     /// (`lr20xx_radio_fifo_write_tx`), and its FLRC burst example sends
     /// 511-byte frames that way.
+    ///
+    /// The frame is always completed and NSS always released, even when the status read
+    /// during the opcode reports a failure -- the same rule `cmd_wr` follows, and for the
+    /// same reason. That status describes the *previous* command, so returning on it here
+    /// abandoned a frame the chip had already begun: the payload was never clocked out and
+    /// NSS stayed low, which from the chip's side is a transaction that never ended.
     pub async fn cmd_data_wr(&mut self, opcode: &[u8], data: &[u8]) -> Result<(), Lr2021Error> {
-        self.cmd_wr_begin(opcode).await?;
-        self.spi
+        let status = self.cmd_wr_begin(opcode).await;
+        let written = self.spi
             .write(data).await
-            .map_err(|_| Lr2021Error::Spi)?;
-        self.nss.set_high().map_err(|_| Lr2021Error::Pin)
+            .map_err(|_| Lr2021Error::Spi);
+        let released = self.nss.set_high().map_err(|_| Lr2021Error::Pin);
+        status.and(written).and(released)
     }
 
     /// Write a command with variable length payload, and save result provided buffer
@@ -419,13 +426,17 @@ impl<O,SPI, M> Lr2021<O,SPI, M> where
     /// and both their implementations memset the destination to zero for exactly this
     /// reason. Transferring in place without that clocks out whatever the caller's
     /// buffer happened to hold -- for a FIFO read, the previous packet.
+    ///
+    /// Completes the frame and releases NSS whatever the opcode's status said, for the
+    /// reason given on `cmd_data_wr`.
     pub async fn cmd_data_rw(&mut self, opcode: &[u8], data: &mut [u8]) -> Result<(), Lr2021Error> {
-        self.cmd_wr_begin(opcode).await?;
+        let status = self.cmd_wr_begin(opcode).await;
         data.fill(0);
-        self.spi
+        let read = self.spi
             .transfer_in_place(data).await
-            .map_err(|_| Lr2021Error::Spi)?;
-        self.nss.set_high().map_err(|_| Lr2021Error::Pin)
+            .map_err(|_| Lr2021Error::Spi);
+        let released = self.nss.set_high().map_err(|_| Lr2021Error::Pin);
+        status.and(read).and(released)
     }
 
     /// Send content of the local buffer as a command
