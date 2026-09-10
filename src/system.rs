@@ -172,6 +172,29 @@ impl<O,SPI, M> Lr2021<O,SPI, M> where
         Ok((rsp.status(), rsp.intr()))
     }
 
+    /// Read status and interrupt in one SPI transaction, clearing nothing
+    ///
+    /// Datasheet §5.2: "the first bytes shifted out on the MISO pin consist of the
+    /// 16 status bits and the IrqStatus(31:0) values". So NOPs on MOSI are enough
+    /// to read both, with no command at all -- one NSS assertion where
+    /// `get_status` and `get_and_clear_irq` each need two, one to send the request
+    /// and one to collect the response.
+    ///
+    /// Worth having in a polling loop, where the saving is per iteration. Since it
+    /// clears nothing, a caller draining a FIFO can watch for `RxDone` with this
+    /// and clear once at the end rather than on every pass.
+    pub async fn read_intr(&mut self) -> Result<(Status,Intr), Lr2021Error> {
+        self.wait_ready(Duration::from_millis(1)).await?;
+        let mut buf = [0u8; 6];
+        self.nss.set_low().map_err(|_| Lr2021Error::Pin)?;
+        let xfer = self.spi
+            .transfer_in_place(&mut buf).await
+            .map_err(|_| Lr2021Error::Spi);
+        self.nss.set_high().map_err(|_| Lr2021Error::Pin)?;
+        xfer?;
+        Ok((Status::from_slice(&buf[..2]), Intr::from_slice(&buf[2..6])))
+    }
+
     /// Read status and interrupt from the chip
     pub async fn get_errors(&mut self) -> Result<ErrorsRsp, Lr2021Error> {
         let req = get_errors_req();
