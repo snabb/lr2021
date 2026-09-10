@@ -194,6 +194,8 @@ impl<O,SPI, M> Lr2021<O,SPI, M> where
     /// Read data from the RX FIFO to the local buffer
     pub async fn rd_rx_fifo(&mut self, len: usize) -> Result<(), Lr2021Error> {
         self.cmd_wr_begin(&[0,1]).await?;
+        // Zeroed first so only NOPs go out on MOSI -- see cmd_data_rw
+        self.buffer.data_mut()[..len].fill(0);
         self.spi
             .transfer_in_place(&mut self.buffer.data_mut()[..len]).await
             .map_err(|_| Lr2021Error::Spi)?;

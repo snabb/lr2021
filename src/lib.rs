@@ -403,8 +403,22 @@ impl<O,SPI, M> Lr2021<O,SPI, M> where
     }
 
     /// Write a command with variable length payload, and save result provided buffer
+    ///
+    /// `data` is zeroed before the transfer, so only NOPs go out on MOSI while the
+    /// response comes back. That is a requirement of the part rather than tidiness.
+    /// Semtech's HAL contract for this transfer (`lr20xx_hal_read` and
+    /// `lr20xx_hal_direct_read_fifo`, the one `lr20xx_radio_fifo_read_rx` uses) says:
+    ///
+    ///     Some hardware SPI implementations write arbitrary values on the MOSI line
+    ///     while reading. If this is done on the LR20XX, non-zero values may be
+    ///     interpreted as commands.
+    ///
+    /// and both their implementations memset the destination to zero for exactly this
+    /// reason. Transferring in place without that clocks out whatever the caller's
+    /// buffer happened to hold -- for a FIFO read, the previous packet.
     pub async fn cmd_data_rw(&mut self, opcode: &[u8], data: &mut [u8]) -> Result<(), Lr2021Error> {
         self.cmd_wr_begin(opcode).await?;
+        data.fill(0);
         self.spi
             .transfer_in_place(data).await
             .map_err(|_| Lr2021Error::Spi)?;
