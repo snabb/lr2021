@@ -157,6 +157,20 @@ impl<O,SPI, M> Lr2021<O,SPI, M> where
         Ok((tx_flags,rx_flags))
     }
 
+    /// Return the irqs flag for TX and RX FIFO, and clear them
+    ///
+    /// The flags latch, so a caller polling them per packet needs this rather
+    /// than [`get_fifo_irq`](Self::get_fifo_irq): otherwise one overflow marks
+    /// every packet after it as well.
+    pub async fn get_and_clear_fifo_irq(&mut self) -> Result<(FifoIrqEn,FifoIrqEn), Lr2021Error> {
+        let req = get_and_clear_fifo_irq_flags_req();
+        let mut rsp = AndClearFifoIrqFlagsRsp::new();
+        self.cmd_rd(&req, rsp.as_mut()).await?;
+        let tx_flags = FifoIrqEn(rsp.tx_fifo_flags());
+        let rx_flags = FifoIrqEn(rsp.rx_fifo_flags());
+        Ok((tx_flags,rx_flags))
+    }
+
     /// Write data to the TX FIFO
     /// Check number of bytes available with get_tx_fifo_lvl()
     pub async fn wr_tx_fifo_from(&mut self, buffer: &[u8]) -> Result<(), Lr2021Error> {
