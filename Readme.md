@@ -1,5 +1,41 @@
 # LR2021 Driver
 
+> **This is a fork** of [TheClams/lr2021](https://github.com/TheClams/lr2021).
+> `master` is upstream's 0.14.0 with the fixes below on top. Upstream has
+> not responded to the open pull requests (#3, #4) for the first of them,
+> so they are carried here rather than offered one at a time. The fork is
+> not published to crates.io; take it by git revision:
+>
+> ```toml
+> [patch.crates-io]
+> lr2021 = { git = "https://github.com/snabb/lr2021.git", rev = "<commit>" }
+> ```
+>
+> Fixes in this fork:
+>
+> - **No embassy-time features selected on the application's behalf.**
+>   Upstream forces `tick-hz-32_768`, `defmt` and `defmt-timestamp-uptime`.
+>   The tick rate conflicts with any HAL time driver that selects another
+>   rate (embassy-nrf's `time-driver-grtc`, the only one for the nRF54L,
+>   selects `tick-hz-1_000_000`), and the build fails with a duplicate
+>   `TICK_HZ`. The `defmt` feature now forwards to `embassy-time/defmt`.
+> - **NSS is always released**, even when the status returned during a
+>   frame reports a failure. That status describes the previous command;
+>   returning early left NSS asserted and every later transaction read
+>   back as zeros.
+> - **The same for `cmd_data_wr` and `cmd_data_rw`**, which skipped the
+>   payload and left NSS low on that check.
+> - **`cmd_data_wr` writes a payload of any length.** It copied through
+>   the 256-byte command buffer and panicked above 256 bytes; FLRC frames
+>   go up to 511.
+> - **Zeros on MOSI while reading a FIFO or a response**, as Semtech's
+>   HAL contract requires. Non-zero bytes can be taken as commands, and
+>   the driver was clocking out the caller's buffer.
+> - **`get_and_clear_fifo_irq`**, so latched FIFO flags such as an
+>   overflow can be cleared as they are read.
+> - **`read_intr`**, reading status and `IrqStatus` in one NSS assertion
+>   (datasheet §5.2) for polling loops.
+
 [![Crates.io](https://img.shields.io/crates/v/lr2021.svg)](https://crates.io/crates/lr2021)
 [![Documentation](https://docs.rs/lr2021/badge.svg)](https://docs.rs/lr2021)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/TheClams/lr2021)
