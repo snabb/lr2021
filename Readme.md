@@ -31,6 +31,9 @@
 > - **Zeros on MOSI while reading a FIFO or a response**, as Semtech's
 >   HAL contract requires. Non-zero bytes can be taken as commands, and
 >   the driver was clocking out the caller's buffer.
+> - **`rd_mem` reads the whole response.** It clocked 4 bytes per word
+>   where the response is 2 status bytes plus 4 per word, so the last
+>   word lost its low half, and it sent stale buffer contents on MOSI.
 > - **`get_and_clear_fifo_irq`**, so latched FIFO flags such as an
 >   overflow can be cleared as they are read.
 > - **`read_intr`**, reading status and `IrqStatus` in one NSS assertion

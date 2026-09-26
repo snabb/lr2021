@@ -437,6 +437,9 @@ impl<O,SPI, M> Lr2021<O,SPI, M> where
     }
 
     /// Read nb32 qword (max 40) from memory and save them inside local buffer
+    ///
+    /// The words land in [`buffer`](Lr2021::buffer) from offset 0, big-endian, after the
+    /// two status bytes the response starts with.
     pub async fn rd_mem(&mut self, addr: u32, nb32: u8) -> Result<(), Lr2021Error> {
         if nb32 > 40 {
             return Err(Lr2021Error::CmdErr);
@@ -445,8 +448,9 @@ impl<O,SPI, M> Lr2021<O,SPI, M> where
         self.cmd_wr(&req).await?;
         self.wait_ready(Duration::from_millis(1)).await?;
         self.nss.set_low().map_err(|_| Lr2021Error::Pin)?;
-        self.buffer.nop();
-        let rsp_buf = &mut self.buffer.0[..4*nb32 as usize];
+        // Status, then the words. Zeroed first so only NOPs go out on MOSI -- see cmd_data_rw
+        let rsp_buf = &mut self.buffer.0[..2 + 4*nb32 as usize];
+        rsp_buf.fill(0);
         self.spi
             .transfer_in_place(rsp_buf).await
             .map_err(|_| Lr2021Error::Spi)?;
