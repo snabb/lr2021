@@ -1,5 +1,4 @@
-# LR2021 Driver
-
+> [!IMPORTANT]
 > **This is a fork** of [TheClams/lr2021](https://github.com/TheClams/lr2021).
 > `master` is upstream's 0.14.0 with the fixes below on top. Upstream has
 > not responded to the open pull requests (#3, #4) for the first of them,
@@ -38,6 +37,8 @@
 >   overflow can be cleared as they are read.
 > - **`read_intr`**, reading status and `IrqStatus` in one NSS assertion
 >   (datasheet §5.2) for polling loops.
+
+# LR2021 Driver
 
 [![Crates.io](https://img.shields.io/crates/v/lr2021.svg)](https://crates.io/crates/lr2021)
 [![Documentation](https://docs.rs/lr2021/badge.svg)](https://docs.rs/lr2021)
