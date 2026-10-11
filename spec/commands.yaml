@@ -516,6 +516,9 @@ categories:
             RAMP_176U: 13
             RAMP_192U: 14
             RAMP_208U: 15
+            RAMP_240U: 16
+            RAMP_272U: 17
+            RAMP_304U: 18
       SetRssiCalibration:
         opcode: 517
         description: Sets the RSSI calibration table for the requested RX path(s). If both paths are set, values for both

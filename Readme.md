@@ -37,6 +37,9 @@
 >   overflow can be cleared as they are read.
 > - **`read_intr`**, reading status and `IrqStatus` in one NSS assertion
 >   (datasheet §5.2) for polling loops.
+> - **`RampTime` covers every PA ramp in datasheet Table 7-24**: 240, 272
+>   and 304 µs were missing, and 272 µs is what Semtech recommends for
+>   FLRC at CR 3/4 near sensitivity.
 
 # LR2021 Driver
 

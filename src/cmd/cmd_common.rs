@@ -63,6 +63,9 @@ pub enum RampTime {
     Ramp176u = 13,
     Ramp192u = 14,
     Ramp208u = 15,
+    Ramp240u = 16,
+    Ramp272u = 17,
+    Ramp304u = 18,
 }
 
 /// Fallback mode selection
